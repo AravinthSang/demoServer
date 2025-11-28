@@ -93,7 +93,7 @@ jobs:
           github-token: ${{ secrets.PAT_TOKEN }}
           script: |
             const pr = context.payload.pull_request;
-            const failed = steps.tests.outcome !== "success";
+            const failed = "${{ needs.run-tests.outputs.test_status }}" === "true";
 
             await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
