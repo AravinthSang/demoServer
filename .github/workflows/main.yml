@@ -1,0 +1,105 @@
+name: main
+
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Detect P0 PR — if found skip tests immediately
+      - name: P0 Quick Check
+        id: p0check
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PAT_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            const msg = (pr.title + " " + pr.body).toUpperCase();
+
+            if (msg.includes("P0")) {
+              console.log("🟢 P0 override detected — skipping tests");
+              await github.rest.repos.createCommitStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: pr.head.sha,
+                state: 'success',
+                context: 'main',
+                description: 'P0 — Tests skipped',
+              });
+              return { skip: 'true' };
+            } else {
+              console.log("⏳ Regular PR — testing required");
+              await github.rest.repos.createCommitStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: pr.head.sha,
+                state: 'pending',
+                context: 'main',
+                description: 'Running automated tests...',
+              });
+              return { skip: 'false' };
+            }
+
+      # 2️⃣ Stop everything if P0
+      - name: Stop workflow on P0
+        if: steps.p0check.outputs.skip == 'true'
+        run: exit 0
+
+      # 3️⃣ Checkout demoServer code
+      - name: Checkout demoServer
+        uses: actions/checkout@v3
+
+      # 4️⃣ Checkout demoTest repo
+      - name: Checkout demoTest
+        uses: actions/checkout@v3
+        with:
+          repository: AravinthSang/demoTest
+          token: ${{ secrets.PAT_TOKEN }}
+          path: demoTest
+          fetch-depth: 1
+
+      # 5️⃣ Install server dependencies
+      - name: Install server dependencies
+        run: npm install
+
+      # 6️⃣ Start server locally
+      - name: Start server
+        run: |
+          npm start &
+          sleep 3
+
+      # 7️⃣ Install test dependencies
+      - name: Install test dependencies
+        run: |
+          cd demoTest
+          npm install
+
+      # 8️⃣ Run playwright tests
+      - name: Run Tests
+        id: tests
+        run: |
+          cd demoTest
+          npx playwright test
+        continue-on-error: true
+
+      # 9️⃣ Publish final result
+      - name: Publish final test status
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PAT_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            const failed = steps.tests.outcome !== "success";
+
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: pr.head.sha,
+              state: failed ? 'failure' : 'success',
+              context: 'main',
+              description: failed ? '❗ Tests failed' : '✅ Tests passed',
+            });
