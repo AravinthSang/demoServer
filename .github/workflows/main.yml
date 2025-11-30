@@ -48,6 +48,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: sachanand/event-certificate-wm-test-automation-playwritght-25-26
+          ref: feature
           token: ${{ secrets.PAT_TOKEN }}
 
       - name: Install dependencies
