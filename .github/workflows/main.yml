@@ -28,14 +28,14 @@ jobs:
         with:
           github-token: ${{ secrets.PAT_TOKEN }}
           script: |
-            console.log("⚠️ P0 detected, skipping tests and marking as success");
+            console.log("P0 detected, skipping tests and marking as success");
             await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
               sha: context.sha,
               state: 'success',
               context: 'main',
-              description: '🟡 P0 override – merge allowed without tests',
+              description: 'P0 override – merge allowed without tests',
             });
 
       - name: Checkout test repo
